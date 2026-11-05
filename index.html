@@ -950,7 +950,7 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
     <span></span>
     <div class="t-actions" id="titleActions"><p class="t-save">구단 기록을 불러오는 중입니다</p></div>
   </div>
-  <p class="t-version" aria-label="게임 버전">버전 1.0.0</p>
+  <p class="t-version" aria-label="게임 버전">버전 1.1.0 · 2026.11.05 22:20</p>
 </section>
 <header class="hud" id="hud" hidden></header>
 <header class="band" id="band" hidden>
@@ -2124,11 +2124,11 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
   };
   var wood = lam('#6E4A2A'), straw = lam('#C9A24E'), shadowMat = new T.MeshBasicMaterial({ color: '#102015', transparent: true, opacity: 0.28, depthWrite: false });
   var SKIN = ['#F0C7A5', '#D8A47E', '#B27B52'];
-  function makeRider(kit, trim, pos, idx) {
+  function makeRider(kit, trim, pos, idx, accent) {
     var g = new T.Group(), body = new T.Group();
-    var robe = lam(kit), cape = new T.MeshLambertMaterial({ color: col(kit).multiplyScalar(0.75), side: T.DoubleSide, flatShading: true });
+    var robe = lam(kit), cape = new T.MeshLambertMaterial({ color: accent ? col(accent) : col(kit).multiplyScalar(0.75), side: T.DoubleSide, flatShading: true });
     var stick = new T.Mesh(GEO.stick, wood); stick.rotation.x = Math.PI / 2;
-    var twig = new T.Mesh(GEO.twig, straw); twig.rotation.x = -Math.PI / 2; twig.position.z = -2.9;
+    var twig = new T.Mesh(GEO.twig, accent ? lam(accent) : straw); twig.rotation.x = -Math.PI / 2; twig.position.z = -2.9;
     var torso = new T.Mesh(GEO.torso, robe); torso.position.set(0, 0.86, -0.1); torso.rotation.x = 0.55;
     var head = new T.Mesh(GEO.head, lam(SKIN[idx % 3])); head.position.set(0, 1.74, 0.42);
     var hood = new T.Mesh(new T.BoxGeometry(0.8, 0.24, 0.8), lam(['#2B2018', '#5A3A22', '#1C1C24', '#7A5A30'][idx % 4])); hood.position.set(0, 2.0, 0.38);
@@ -2268,10 +2268,10 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
     var r = (v.x * v.x) / ((PA - m) * (PA - m)) + (v.z * v.z) / ((PB - m) * (PB - m));
     if (r > 1) { var k = 1 / Math.sqrt(r); v.x *= k; v.z *= k; }
   }
+  var AWAY_KIT = '#F2EFE6';
   function kitColors(a, b) {
-    var ca = col(a.color), cb = col(b.color);
-    var dist = Math.abs(ca.r - cb.r) + Math.abs(ca.g - cb.g) + Math.abs(ca.b - cb.b);
-    return dist < 0.42 ? [a.color, '#F2EFE6'] : [a.color, b.color];
+    // 홈은 진한 팀 색, 원정은 밝은 유니폼. 밝기 차이로 멀리서도 구분된다.
+    return ['#' + col(a.color).multiplyScalar(0.72).getHexString(), AWAY_KIT];
   }
 
   function disposeRiders() {
@@ -2289,8 +2289,8 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
     var list = [], byId = {};
     [a, b].forEach(function (team, side) {
       team.players.forEach(function (pl, i) {
-        var trim = kits[side] === '#F2EFE6' ? team.color : '#F5F0DC';
-        var mesh = makeRider(kits[side], trim, pl.pos, i + side * 3);
+        var trim = kits[side] === AWAY_KIT ? team.color : '#F5F0DC';
+        var mesh = makeRider(kits[side], trim, pl.pos, i + side * 3, team.color);
         var sh = new T.Mesh(GEO.shadow, shadowMat);
         sh.visible = IS_PHONE;
         sh.rotation.x = -Math.PI / 2;
@@ -2335,10 +2335,10 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
       bl: bl, blPtr: [0, 0], kits: kits, beaterShot: {},
       chasers: [0, 1].map(function (sd) { return list.filter(function (p) { return p.side === sd && p.pos === 'chaser'; }); })
     };
-    crowd.recolor(kits[0], kits[1]);
+    crowd.recolor(a.color, b.color);
     
     
-    towerMats[0].color.set(kits[0]); towerMats[1].color.set(kits[1]);
+    towerMats[0].color.set(a.color); towerMats[1].color.set(b.color);
     applyWeather(weatherKey);
     tau = 0; evIdx = 0; cursor = 0; finished = false; excite = [0, 0]; playing = !heldStart; camPush = 0; camKick = 0; resetTalk();
     $('climax').hidden = true;
@@ -3191,7 +3191,7 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
     if (e.type === 'goal') {
       var line = noteGoal(e), mine = isMine(e.side);
       var ac = game.m.actions.filter(function (x) { return x.t === roundT(e); })[0];
-      var side = e.side, tColor = game.kits[side];
+      var side = e.side, tColor = team(side).color;
       var hp = ac ? hoopFor(ac) : hoops[side][1];
       hp.flash = 1.6;
       fx.burst(hp.x, hp.y, hp.z, [col(tColor), WHITE, GOLD], mine ? 170 : 45, 15, 2.1);
