@@ -900,6 +900,7 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
 .save-code { width: 100%; height: 110px; border: 2px solid var(--ink); background: var(--white); color: var(--ink); font: 12px/1.4 var(--sans); padding: 6px; word-break: break-all; }
 .t-account { font-size: 13px; }
 .title .btn { min-height: 44px; }
+.t-version { position: fixed; right: max(10px, env(safe-area-inset-right, 0px)); bottom: max(8px, env(safe-area-inset-bottom, 0px)); margin: 0; padding: 1px 7px; background: var(--sheet); border: 1px solid var(--ink); color: var(--ink); font: 700 12px/1.5 var(--sans); }
 /* 작은 화면 */
 @media (max-width: 900px) {
   .l-main { grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -949,6 +950,7 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
     <span></span>
     <div class="t-actions" id="titleActions"><p class="t-save">구단 기록을 불러오는 중입니다</p></div>
   </div>
+  <p class="t-version" aria-label="게임 버전">버전 1.0.0</p>
 </section>
 <header class="hud" id="hud" hidden></header>
 <header class="band" id="band" hidden>
