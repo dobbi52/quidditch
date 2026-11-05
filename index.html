@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1E2A38">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -483,13 +483,12 @@ body.in-match { background: var(--page); }
 @keyframes cardIn { from { transform: translateY(16px) scale(.86); opacity: 0; } }
 .pc.flip { animation: flip .42s ease-out; }
 @keyframes flip { 0% { transform: perspective(500px) rotateY(90deg); } 100% { transform: perspective(500px) rotateY(0); } }
-.sheet-wrap { animation: fade .18s ease-out; }
-.sheet { animation: sheetUp .26s cubic-bezier(.2, 1.1, .3, 1); }
+.sheet-wrap.opening { animation: fade .18s ease-out; }
+.sheet-wrap.opening .sheet { animation: sheetUp .26s cubic-bezier(.2, 1.1, .3, 1); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes sheetUp { from { transform: translateY(26px) scale(.97); opacity: 0; } }
 .tac { transition: transform .1s, background .12s, border-color .12s; }
 .tac:active, .dock button:active, .btn:active, .ghost:active { transform: scale(.96); }
-.tac.on { animation: pop2 .22s ease-out; }
 @keyframes pop2 { 50% { transform: scale(1.05); } }
 .dock button { transition: background .15s, color .15s; }
 .dock button.on .ic { animation: pop2 .28s ease-out; }
@@ -901,6 +900,13 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
 .t-account { font-size: 13px; }
 .title .btn { min-height: 44px; }
 .t-version { position: fixed; right: max(10px, env(safe-area-inset-right, 0px)); bottom: max(8px, env(safe-area-inset-bottom, 0px)); margin: 0; padding: 1px 7px; background: var(--sheet); border: 1px solid var(--ink); color: var(--ink); font: 700 12px/1.5 var(--sans); }
+html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
+.t-play small { display: block; margin-top: 3px; font: 700 13px/1.3 var(--body); }
+.t-row { display: inline-flex; align-items: stretch; background: var(--sheet); border: 2px solid var(--ink); max-width: 100%; }
+.t-row > * + * { border-left: 2px solid var(--ink); }
+.t-row .t-link { border: 0; background: none; min-height: 40px; }
+.t-row .t-link + .t-link, .t-row > * + .t-link { border-left: 2px solid var(--ink); }
+.t-account { display: flex; align-items: center; padding: 0 14px; min-height: 40px; font-size: 13px; font-weight: 700; }
 /* 작은 화면 */
 @media (max-width: 900px) {
   .l-main { grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -950,7 +956,7 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
     <span></span>
     <div class="t-actions" id="titleActions"><p class="t-save">구단 기록을 불러오는 중입니다</p></div>
   </div>
-  <p class="t-version" aria-label="게임 버전">버전 1.1.1 · 2026.11.05 22:24</p>
+  <p class="t-version" aria-label="게임 버전">버전 1.1.2 · 2026.11.05 22:31</p>
 </section>
 <header class="hud" id="hud" hidden></header>
 <header class="band" id="band" hidden>
@@ -4740,6 +4746,7 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
   'use strict';
   var S = window.QuidditchSim, M = window.QuidditchManager;
   var $ = function (id) { return document.getElementById(id); };
+  var sheetOpening = false, sheetScroll = 0;
   var analysisRun = null, titleOpen = true, titleConfirm = false, pendingExport = false, pendingImport = false;
   var st = null, view = 'home', notice = '', pendingBuy = null, pendingSell = null, pendingReset = false, marketFilter = 'all', report = null, saveState = '불러오는 중', prepOpen = false, sel = null, enter = true, flipIds = [];
   var WEATHER_NAME = { clear: '맑음', wind: '강풍', rain: '비', fog: '안개' };
@@ -4936,10 +4943,12 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
   // ---------- 첫 화면 ----------
   function closeTitle() { titleOpen = false; titleConfirm = false; $('title').hidden = true; }
   function hasSave() { return st.phase !== 'choose'; }
-  function accountRow() {
-    if (!cloud.ok) return '';
-    if (cloud.user) return '<p class="t-save t-account">' + (cloud.user.displayName || '구글 계정') + ' · 기기 간 연동 중</p>' + (cloud.msg ? '<p class="t-warn">' + cloud.msg + '</p>' : '');
-    return (cloud.msg ? '<p class="t-warn">' + cloud.msg + '</p>' : '') + '<button class="t-link" type="button" data-act="login">구글로 로그인해 기기 연동</button>';
+  // 첫 화면 아래 줄: 보조 기능을 한 줄에 모은다.
+  function subRow(withNew) {
+    var items = [];
+    if (withNew) items.push('<button class="t-link" type="button" data-act="titleNew">새 게임</button>');
+    if (cloud.ok) items.push(cloud.user ? '<span class="t-account">' + (cloud.user.displayName || '구글 계정') + ' 연동 중</span>' : '<button class="t-link" type="button" data-act="login">구글 로그인</button>');
+    return (cloud.msg ? '<p class="t-warn">' + cloud.msg + '</p>' : '') + (items.length ? '<div class="t-row">' + items.join('') + '</div>' : '');
   }
   function paintTitle() {
     var box = $('titleActions');
@@ -4953,9 +4962,9 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
       return;
     }
     if (hasSave()) {
-      box.innerHTML = '<button class="play t-play" type="button" id="titleStart" data-act="titleStart">이어하기</button><p class="t-save"><b>' + M.my(st).name + '</b> · 시즌 ' + st.season + ' · ' + roundLabel() + '</p><button class="t-link" type="button" data-act="titleNew">새 게임</button>' + accountRow();
+      box.innerHTML = '<button class="play t-play" type="button" id="titleStart" data-act="titleStart">이어하기<small>' + saveLabel(st) + '</small></button>' + subRow(true);
     } else {
-      box.innerHTML = '<button class="play t-play" type="button" id="titleStart" data-act="titleStart">시작하기</button>' + accountRow();
+      box.innerHTML = '<button class="play t-play" type="button" id="titleStart" data-act="titleStart">시작하기</button>' + subRow(false);
     }
   }
   function showTitle() {
@@ -5048,15 +5057,26 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
       if (n[0] === 'squad') { var a = squadAlerts(); if (a) badge = '<em>' + a + '</em>'; }
       return '<button type="button" data-act="nav" data-to="' + key + '" class="' + (view === key ? 'on' : '') + '"><span>' + n[1] + '</span>' + badge + '</button>';
     }).join('');
+    var oldWrap = $('app').querySelector('.sheet-wrap');
+    sheetScroll = oldWrap ? oldWrap.scrollTop : 0;
+    if (prepOpen && !oldWrap) sheetOpening = true;
+    var pageScroll = window.scrollY;
     var html = ({ home: viewHome, squad: viewSquad, train: viewTrain, league: viewLeague, market: viewMarket, finance: viewFinance, offseason: viewOffseason, report: viewReport }[view] || viewHome)();
     $('app').innerHTML = (notice ? '<p class="notice">' + notice + '</p>' : '') + html + (prepOpen && st.upcoming ? viewPrep() : '');
     finishRender();
+    if (!enter && window.scrollY !== pageScroll) window.scrollTo(0, pageScroll);
   }
   function finishRender() {
     var app = $('app');
     if (enter) {
       enter = false;
       app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter');
+    } else app.classList.remove('enter');
+    var wrap = app.querySelector('.sheet-wrap');
+    if (wrap) {
+      if (sheetOpening) wrap.classList.add('opening');
+      sheetOpening = false;
+      wrap.scrollTop = sheetScroll;
     }
     flipIds.forEach(function (id) { var e = app.querySelector('.pc[data-id="' + id + '"]'); if (e) e.classList.add('flip'); });
     flipIds = [];
@@ -5496,6 +5516,15 @@ body.fs-on .fs-bar { background: rgba(30, 42, 56, .94); }
     resetNo: function () { pendingReset = false; render(); },
     resetYes: function () { pendingReset = false; lsClear(); st = M.newGame((Date.now() % 2147483647) >>> 0); st.gameId = newGameId(); view = 'home'; notice = ''; persist(); render(); }
   };
+  // 빈 곳을 빠르게 두 번 눌러도 화면이 확대되지 않게 한다. 버튼과 입력칸, 경기장은 그대로 둔다.
+  var lastTap = 0;
+  document.addEventListener('touchend', function (e) {
+    var now = Date.now(), t = e.target;
+    var free = !(t.closest && t.closest('button, a, input, select, textarea, label, canvas'));
+    if (free && now - lastTap < 320 && e.cancelable) e.preventDefault();
+    lastTap = now;
+  }, { passive: false });
+  document.addEventListener('dblclick', function (e) { if (!(e.target.closest && e.target.closest('canvas, textarea, input'))) e.preventDefault(); });
   document.addEventListener('click', function (e) {
     var el = e.target.closest ? e.target.closest('[data-act]') : null;
     if (el && !el.disabled && ACT[el.getAttribute('data-act')]) ACT[el.getAttribute('data-act')](el);
