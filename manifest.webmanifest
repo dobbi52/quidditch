@@ -1,0 +1,16 @@
+{
+  "name": "창공배 퀴디치",
+  "short_name": "창공배",
+  "description": "구단을 운영하고 3D 경기를 관전하는 퀴디치 매니지먼트 게임",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1E6CF",
+  "theme_color": "#1E2A38",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

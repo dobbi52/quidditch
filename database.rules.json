@@ -1,0 +1,14 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "saves": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['savedAt', 'json']) && newData.child('savedAt').isNumber() && newData.child('json').isString() && newData.child('json').val().length < 1000000",
+        "$other": { ".validate": "$other === 'savedAt' || $other === 'json'" }
+      }
+    }
+  }
+}
