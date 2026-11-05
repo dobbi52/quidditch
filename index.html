@@ -985,7 +985,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     <span></span>
     <div class="t-actions" id="titleActions"><p class="t-save">구단 기록을 불러오는 중입니다</p></div>
   </div>
-  <p class="t-version" aria-label="게임 버전">버전 1.3.1 · 2026.11.05 23:11</p>
+  <p class="t-version" aria-label="게임 버전">버전 1.3.2 · 2026.11.05 23:25</p>
 </section>
 <header class="hud" id="hud" hidden></header>
 <header class="band" id="band" hidden>
@@ -1144,13 +1144,17 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     if (ctx) return true;
     var AC = root.AudioContext || root.webkitAudioContext;
     if (!AC) return false;
-    try { ctx = new AC(); } catch (e) { return false; }
+    // 소리 끊김을 막기 위해 처리 여유를 넉넉히 둔다. 3D 경기와 함께 돌아가는 휴대폰에서 특히 중요하다.
+    try { ctx = new AC({ latencyHint: 'playback' }); } catch (e) { try { ctx = new AC(); } catch (e2) { return false; } }
     master = ctx.createDynamicsCompressor();
     master.threshold.value = -14; master.ratio.value = 5;
     analyser = ctx.createAnalyser(); analyser.fftSize = 2048;
     master.connect(analyser); analyser.connect(ctx.destination);
     sfxBus = ctx.createGain(); sfxBus.gain.value = pref.sfx ? 0.62 : 0; sfxBus.connect(master);
-    bgmBus = ctx.createGain(); bgmBus.gain.value = pref.bgm ? 0.3 : 0; bgmBus.connect(master);
+    bgmBus = ctx.createGain(); bgmBus.gain.value = pref.bgm ? 0.3 : 0;
+    // 배경음의 거친 고음을 걷어 내 지지직거리는 느낌을 줄인다.
+    var bgmSoft = ctx.createBiquadFilter(); bgmSoft.type = 'lowpass'; bgmSoft.frequency.value = 2600; bgmSoft.Q.value = 0.4;
+    bgmBus.connect(bgmSoft); bgmSoft.connect(master);
     crowdBus = ctx.createGain(); crowdBus.gain.value = pref.sfx ? 1 : 0; crowdBus.connect(master);
     var len = ctx.sampleRate * 2;
     noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -1158,7 +1162,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     // 관중 소리
     var src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
-    crowdFilter = ctx.createBiquadFilter(); crowdFilter.type = 'bandpass'; crowdFilter.frequency.value = 650; crowdFilter.Q.value = 0.5;
+    crowdFilter = ctx.createBiquadFilter(); crowdFilter.type = 'bandpass'; crowdFilter.frequency.value = 480; crowdFilter.Q.value = 0.8;
     crowdGain = ctx.createGain(); crowdGain.gain.value = 0;
     src.connect(crowdFilter); crowdFilter.connect(crowdGain); crowdGain.connect(crowdBus);
     src.start();
@@ -1266,9 +1270,9 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     crowdGain.gain.setTargetAtTime(crowdBase(), t + dur * 0.5, dur * 0.4);
     crowdFilter.frequency.cancelScheduledValues(t);
     crowdFilter.frequency.setTargetAtTime(freq || 800, t, 0.1);
-    crowdFilter.frequency.setTargetAtTime(650, t + dur * 0.5, dur * 0.4);
+    crowdFilter.frequency.setTargetAtTime(480, t + dur * 0.5, dur * 0.4);
   }
-  function crowdBase() { return mode === 'match' || mode === 'chase' ? 0.045 : mode === 'lobby' ? 0.012 : 0; }
+  function crowdBase() { return mode === 'match' || mode === 'chase' ? 0.022 : mode === 'lobby' ? 0.006 : 0; }
   function play(name) {
     if (!pref.sfx || !ensure() || ctx.state !== 'running' || !SFX[name]) return;
     var t = now();
@@ -1319,17 +1323,17 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     var lift = chase ? Math.pow(2, Math.min(chaseBars, 8) / 12) : 1;
     if (chase && b16 === 0) chaseBars++;
     // 베이스
-    if (b16 % 2 === 0) tone(bgmBus, MATCH.bass[mb] * (b16 % 4 === 2 ? 2 : 1) * lift, t, 0.15, chase ? 0.19 : 0.13, 'sawtooth');
+    if (b16 % 2 === 0) tone(bgmBus, MATCH.bass[mb] * (b16 % 4 === 2 ? 2 : 1) * lift, t, 0.16, chase ? 0.22 : 0.16, 'triangle', null, 0.012);
     // 드럼
     if (b16 % 4 === 0) { tone(bgmBus, 110, t, 0.13, chase ? 0.4 : 0.26, 'sine', 45); }
     if (b16 === 4 || b16 === 12) noise(bgmBus, t, 0.1, chase ? 0.18 : 0.11, 'bandpass', 1900, 1200, 0.8);
-    if (b16 % 2 === 1 || intensity > 0.5 || chase) noise(bgmBus, t, 0.03, chase ? 0.075 : 0.04, 'highpass', 7000);
+    if (b16 % 4 === 2) noise(bgmBus, t, 0.05, chase ? 0.05 : 0.03, 'bandpass', 2400, 1800, 0.7);
     // 화음 조각
-    if (!chase && b16 % 8 === 0) ch.forEach(function (f) { tone(bgmBus, f, t, 0.4, 0.04, 'square'); });
+    if (!chase && b16 % 8 === 0) ch.forEach(function (f) { tone(bgmBus, f, t, 0.4, 0.06, 'triangle', null, 0.015); });
     // 격렬할수록 선율이 들어온다.
-    if (!chase && intensity > 0.3) { var tn = MATCH.tune[s % 16]; if (tn) tone(bgmBus, tn, t, 0.15, 0.055, 'square'); }
+    if (!chase && intensity > 0.3) { var tn = MATCH.tune[s % 16]; if (tn) tone(bgmBus, tn, t, 0.16, 0.085, 'triangle', null, 0.012); }
     // 추격 중에는 오르는 16분 음형
-    if (chase) tone(bgmBus, ch[s % ch.length] * 2 * lift, t, 0.08, 0.06, 'square');
+    if (chase) tone(bgmBus, ch[s % ch.length] * 2 * lift, t, 0.09, 0.08, 'triangle', null, 0.012);
   }
   function setMode(m) {
     if (mode === m) return;
@@ -1361,7 +1365,9 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
       if (!analyser) return { ready: false };
       var a = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(a);
       var peak = 0; for (var i = 0; i < a.length; i++) peak = Math.max(peak, Math.abs(a[i]));
-      return { ready: true, state: ctx.state, peak: peak, mode: mode, sfx: counters.sfx, notes: counters.notes };
+      var f = new Float32Array(analyser.frequencyBinCount); analyser.getFloatFrequencyData(f);
+      var hi = 0, all = 0; for (var j = 0; j < f.length; j++) { var e = Math.pow(10, f[j] / 10); if (isFinite(e)) { all += e; if (j * ctx.sampleRate / analyser.fftSize > 4000) hi += e; } }
+      return { ready: true, state: ctx.state, peak: peak, hiShare: all ? hi / all : 0, mode: mode, sfx: counters.sfx, notes: counters.notes };
     }
   };
 })(window);
