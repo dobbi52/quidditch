@@ -956,7 +956,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     <span></span>
     <div class="t-actions" id="titleActions"><p class="t-save">구단 기록을 불러오는 중입니다</p></div>
   </div>
-  <p class="t-version" aria-label="게임 버전">버전 1.1.2 · 2026.11.05 22:31</p>
+  <p class="t-version" aria-label="게임 버전">버전 1.2.0 · 2026.11.05 22:47</p>
 </section>
 <header class="hud" id="hud" hidden></header>
 <header class="band" id="band" hidden>
@@ -1795,7 +1795,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
   })();
 
   // ---------- 경기장 바닥 ----------
-  var pitchMesh;
+  var pitchMesh, paintPitch;
   (function buildPitch() {
     var w = 2048, h = 1280, cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
@@ -1803,6 +1803,8 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     var sx = w / (2 * (PA + 10)), sz = h / (2 * (PB + 10));
     function X(x) { return w / 2 + x * sx; }
     function Z(z) { return h / 2 + z * sz; }
+    // zones: 경기장 양 끝 원 색 [-x쪽, +x쪽], marks: 각 진영 바닥에 연하게 넣는 팀 표시
+    function paint(zones, marks) {
     c.fillStyle = '#176B3C'; c.fillRect(0, 0, w, h);
     c.save();
     c.beginPath(); c.ellipse(w / 2, h / 2, PA * sx, PB * sz, 0, 0, Math.PI * 2); c.clip();
@@ -1812,7 +1814,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     }
     // 끝 구역은 청록색
     [-1, 1].forEach(function (e) {
-      c.fillStyle = '#23968F';
+      c.fillStyle = zones ? zones[e > 0 ? 1 : 0] : '#23968F';
       c.beginPath(); c.ellipse(X(e * 70), Z(0), 24 * sx, 30 * sz, 0, 0, Math.PI * 2); c.fill();
     });
     // 구름 그림자처럼 번진 얼룩
@@ -1831,7 +1833,26 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
       var lx = e * 30, lz = Math.sqrt(1 - lx * lx / (PA * PA)) * PB;
       c.beginPath(); c.moveTo(X(lx), Z(-lz)); c.lineTo(X(lx), Z(lz)); c.stroke();
     });
+    (marks || []).forEach(function (m) {
+      var cx = X(m.x), cy = Z(0);
+      c.save();
+      c.globalAlpha = 0.3;
+      if (m.img) {
+        var iw = 27 * sx, ih = iw * 124 / 96 * 1.2;
+        c.drawImage(m.img, cx - iw / 2, cy - ih * 0.62, iw, ih);
+      }
+      c.fillStyle = '#FFFFFF';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.translate(cx, cy + (m.img ? 23 * sz : 0));
+      c.scale(1, 1.5);
+      c.font = "400 " + Math.round(7.5 * sx) + "px 'Black Han Sans', 'Noto Sans KR', sans-serif";
+      c.fillText(m.name, 0, 0);
+      c.restore();
+    });
+    }
+    paint();
     var tex = new T.CanvasTexture(cv);
+    paintPitch = function (zones, marks) { paint(zones, marks); tex.needsUpdate = true; };
     tex.magFilter = T.LinearFilter; tex.minFilter = T.LinearMipmapLinearFilter; tex.generateMipmaps = true;
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     pitchMesh = new T.Mesh(new T.PlaneGeometry(2 * (PA + 10), 2 * (PB + 10)), new T.MeshLambertMaterial({ map: tex, color: 0xD6D6D6 }));
@@ -1991,7 +2012,8 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
       var x = s === 0 ? HOOPX : -HOOPX;
       HOOP_Z.forEach(function (z, i) {
         var y = HOOP_Y[i];
-        var pole = new T.Mesh(poleGeo, lam('#8A3F2A'));
+        var poleMat = lam('#8A3F2A');
+        var pole = new T.Mesh(poleGeo, poleMat);
         pole.scale.y = y - 2.8; pole.position.set(x, (y - 2.8) / 2, z);
         pole.castShadow = true;
         var base = new T.Mesh(baseGeo, lam('#D9B98F')); base.position.set(x, 0.25, z);
@@ -1999,10 +2021,11 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
         var ring = new T.Mesh(ringGeo, mat);
         var ringYaw = s === 0 ? -Math.PI / 4 : Math.PI / 4;
         ring.position.set(x, y, z); ring.rotation.y = ringYaw; ring.castShadow = true;
-        var ring2 = new T.Mesh(inner, lam('#C8483A'));
+        var innerMat = lam('#C8483A');
+        var ring2 = new T.Mesh(inner, innerMat);
         ring2.position.set(x, y, z); ring2.rotation.y = ringYaw;
         scene.add(pole, base, ring, ring2);
-        hoops[s].push({ x: x, y: y, z: z, mat: mat, flash: 0 });
+        hoops[s].push({ x: x, y: y, z: z, mat: mat, poleMat: poleMat, innerMat: innerMat, color: '#E5B02E', flash: 0 });
       });
     });
   })();
@@ -2288,6 +2311,39 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     });
   }
 
+  // 골대와 진영을 지키는 팀의 유니폼 색으로 칠한다. hoops[0]은 +x쪽이며 side 1이 지킨다.
+  function zoneColor(kit) { return '#' + col(kit).lerp(col('#2A8733'), 0.35).getHexString(); }
+  function crestImage(team, cb) {
+    var C = window.QuidditchCrest, art = C && C.art[team.id], fit = C && C.fit[team.id];
+    if (!art || !fit) return cb(null);
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="620" viewBox="0 0 96 124"><g transform="translate(' + fit[0] + ' ' + fit[1] + ') scale(' + fit[2] + ')">' + art.replace(/\{c\}/g, '#2A8733') + '</g></svg>';
+    var img = new Image();
+    img.onload = function () { cb(img); };
+    img.onerror = function () { cb(null); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  function dressField(a, b, kits) {
+    [0, 1].forEach(function (s) {
+      var kit = kits[1 - s], dark = col(kit).multiplyScalar(0.7);
+      hoops[s].forEach(function (h) {
+        h.color = kit; h.flash = 0;
+        h.mat.color.set(kit); h.poleMat.color.set(kit); h.innerMat.color.copy(dark);
+      });
+    });
+    // -x쪽은 side 0(a), +x쪽은 side 1(b)의 진영이다.
+    var zones = [zoneColor(kits[0]), zoneColor(kits[1])];
+    var marks = [{ x: -38, name: a.name, img: null }, { x: 38, name: b.name, img: null }];
+    paintPitch(zones, marks);
+    var key = dressKey = {};
+    crestImage(a, function (ia) {
+      crestImage(b, function (ib) {
+        if (dressKey !== key) return;
+        marks[0].img = ia; marks[1].img = ib;
+        paintPitch(zones, marks);
+      });
+    });
+  }
+  var dressKey = null;
   function newGame(a, b, weatherKey, seed) {
     disposeRiders();
     var m = S.simulateMatch(a, b, { seed: seed, weather: weatherKey });
@@ -2345,6 +2401,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     
     
     towerMats[0].color.set(a.color); towerMats[1].color.set(b.color);
+    dressField(a, b, kits);
     applyWeather(weatherKey);
     tau = 0; evIdx = 0; cursor = 0; finished = false; excite = [0, 0]; playing = !heldStart; camPush = 0; camKick = 0; resetTalk();
     $('climax').hidden = true;
@@ -3417,7 +3474,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     computeTargets(tau); snapPlayers(); ballReset = true; computeBall();
     renderHud(); renderStats();
     excite = [0, 0]; bannerTimer = 0; captionTimer = 0;
-    hoops[0].concat(hoops[1]).forEach(function (h) { h.flash = 0; h.mat.color.set('#D9A62E'); });
+    hoops[0].concat(hoops[1]).forEach(function (h) { h.flash = 0; h.mat.color.set(h.color); });
     $('banner').hidden = true; $('caption').hidden = true;
     if (!playing) { playing = true; setPlayLabel(); }
   }
@@ -3643,7 +3700,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     crowd.animate(simTimeReal, excite);
     if (A) A.intensity(Math.max(excite[0], excite[1], tension * 0.85, Math.abs(winProbNow - 0.5) < 0.12 ? 0.55 : 0));
     hoops[0].concat(hoops[1]).forEach(function (h) {
-      if (h.flash > 0) { h.flash -= dtR; h.mat.color.set(Math.floor(h.flash * 8) % 2 ? '#FFFFFF' : '#FFD23E'); if (h.flash <= 0) h.mat.color.set('#D9A62E'); }
+      if (h.flash > 0) { h.flash -= dtR; h.mat.color.set(Math.floor(h.flash * 8) % 2 ? '#FFFFFF' : '#FFD23E'); if (h.flash <= 0) h.mat.color.set(h.color); }
     });
     flags.forEach(function (f) { f.mesh.rotation.y = Math.sin(simTimeReal * (1.5 + windNow * 0.3) + f.phase) * (0.2 + windNow * 0.03); });
     clouds.step(dtR, windNow);
@@ -3672,7 +3729,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     var side = fl.poss;
     excite[side] = Math.max(excite[side], tension * 0.45);
     var aim = fl.beat === 'shot' ? fl.hp : null;
-    if (aimHoop && aimHoop !== aim && !(aimHoop.flash > 0)) aimHoop.mat.color.set('#D9A62E');
+    if (aimHoop && aimHoop !== aim && !(aimHoop.flash > 0)) aimHoop.mat.color.set(aimHoop.color);
     aimHoop = aim;
     if (aim && !(aim.flash > 0)) aim.mat.color.set(Math.sin(simTimeReal * 16) > 0 ? '#FFF1A8' : '#E9B93A');
   }
@@ -5026,6 +5083,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
   };
   // 동물마다 크기가 달라 깃발 안에 꽉 차고 가운데 오도록 따로 맞춘다. [가로 이동, 세로 이동, 배율]
   var CREST_FIT = {"swallow": [-1.1, -1.3, 2.05], "owl": [-12.5, -11.6, 2.52], "gull": [-1.1, -5.4, 2.05], "fox": [-10.6, -8.1, 2.44], "wolf": [-2.6, -0.1, 2.11], "deer": [-5.3, 6.3, 2.22], "whale": [-13.6, -9.6, 2.45], "magpie": [-16.5, -14.7, 2.39]};
+  window.QuidditchCrest = { art: CREST_ART, fit: CREST_FIT };
   function crest(idx, size) {
     var t = st.teams[idx], c = S.TEAM_DEFS[t.def].color, art = CREST_ART[S.TEAM_DEFS[t.def].id].replace(/\{c\}/g, c);
     var fit = CREST_FIT[S.TEAM_DEFS[t.def].id];
