@@ -745,7 +745,7 @@ select { border: 2px solid var(--ink); background: var(--sheet); }
 .ticker-l b { font: 400 17px/1 var(--big); color: var(--gold); margin-right: 10px; }
 
 /* 경기 준비 */
-.sheet-wrap { background: rgba(30, 42, 56, .72); }
+.sheet-wrap { background: rgba(30, 42, 56, .72); padding: 72px 16px 76px; place-items: safe center; }
 .sheet { background: var(--sheet); color: var(--ink); border: 3px solid var(--ink); box-shadow: 8px 8px 0 var(--ink); }
 .sheet h2 { font: 400 28px/1.15 var(--big); color: var(--red); }
 .sheet h3 { font: 700 14px/1.2 var(--body); color: var(--ink); border-top: 2px solid var(--ink); padding-top: 7px; margin-top: 7px; }
@@ -907,6 +907,32 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
 .t-row .t-link { border: 0; background: none; min-height: 40px; }
 .t-row .t-link + .t-link, .t-row > * + .t-link { border-left: 2px solid var(--ink); }
 .t-account { display: flex; align-items: center; padding: 0 14px; min-height: 40px; font-size: 13px; font-weight: 700; }
+.sheet.guide { gap: 10px; width: min(620px, 100%); }
+.g-body { display: grid; gap: 10px; font-size: 15px; line-height: 1.6; min-width: 0; }
+.g-body p { margin: 0; }
+.g-body h3 { border: 0; padding: 0; margin: 2px 0 -4px; font: 400 19px/1.3 var(--big); }
+.g-flow { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.g-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.g-list b { display: block; font-weight: 900; }
+.g-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; border-top: 2px solid var(--ink); padding-top: 10px; }
+.g-foot .btn { min-height: 44px; min-width: 76px; }
+.g-dots { display: inline-flex; gap: 5px; }
+.g-dots i { width: 10px; height: 10px; border: 2px solid var(--ink); }
+.g-dots i.on { background: var(--red); border-color: var(--red); }
+.g-role { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.g-role:last-child { border-bottom: 0; padding-bottom: 0; }
+.g-ic { width: 56px; height: 56px; padding: 8px; }
+.g-ic svg { display: block; width: 100%; height: 100%; }
+.g-ic.pos-seeker svg * { fill: #1E2A38; }
+.g-ic.pos-seeker circle { fill: #1E2A38; }
+.g-role h3 { margin: 0; font: 400 22px/1.2 var(--big); border: 0; padding: 0; }
+.g-role h3 small { font: 700 13px var(--body); }
+.g-key { font-size: 14px; }
+.g-key b { color: var(--red); font-weight: 900; }
+.g-tip { font-size: 14px; color: var(--muted); }
+.l-guide { grid-column: 1 / -1; }
+.d-role { margin: 0; font-size: 14px; line-height: 1.5; }
+.sq-head + .lead { margin: 0; font-size: 14px; }
 /* 작은 화면 */
 @media (max-width: 900px) {
   .l-main { grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -956,7 +982,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     <span></span>
     <div class="t-actions" id="titleActions"><p class="t-save">구단 기록을 불러오는 중입니다</p></div>
   </div>
-  <p class="t-version" aria-label="게임 버전">버전 1.2.0 · 2026.11.05 22:47</p>
+  <p class="t-version" aria-label="게임 버전">버전 1.3.0 · 2026.11.05 22:56</p>
 </section>
 <header class="hud" id="hud" hidden></header>
 <header class="band" id="band" hidden>
@@ -4803,7 +4829,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
   'use strict';
   var S = window.QuidditchSim, M = window.QuidditchManager;
   var $ = function (id) { return document.getElementById(id); };
-  var sheetOpening = false, sheetScroll = 0;
+  var sheetOpening = false, sheetScroll = 0, guide = null;
   var analysisRun = null, titleOpen = true, titleConfirm = false, pendingExport = false, pendingImport = false;
   var st = null, view = 'home', notice = '', pendingBuy = null, pendingSell = null, pendingReset = false, marketFilter = 'all', report = null, saveState = '불러오는 중', prepOpen = false, sel = null, enter = true, flipIds = [];
   var WEATHER_NAME = { clear: '맑음', wind: '강풍', rain: '비', fog: '안개' };
@@ -5117,10 +5143,10 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     }).join('');
     var oldWrap = $('app').querySelector('.sheet-wrap');
     sheetScroll = oldWrap ? oldWrap.scrollTop : 0;
-    if (prepOpen && !oldWrap) sheetOpening = true;
+    if ((prepOpen || guide) && !oldWrap) sheetOpening = true;
     var pageScroll = window.scrollY;
     var html = ({ home: viewHome, squad: viewSquad, train: viewTrain, league: viewLeague, market: viewMarket, finance: viewFinance, offseason: viewOffseason, report: viewReport }[view] || viewHome)();
-    $('app').innerHTML = (notice ? '<p class="notice">' + notice + '</p>' : '') + html + (prepOpen && st.upcoming ? viewPrep() : '');
+    $('app').innerHTML = (notice ? '<p class="notice">' + notice + '</p>' : '') + html + (guide ? viewGuide() : prepOpen && st.upcoming ? viewPrep() : '');
     finishRender();
     if (!enter && window.scrollY !== pageScroll) window.scrollTo(0, pageScroll);
   }
@@ -5184,7 +5210,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     var side = '<aside class="l-side">' +
       '<div class="l-box"><small>구단주 목표</small><b>' + goal.text + '</b>' + cells(st.trust) + '<span>구단주 신뢰 ' + Math.round(st.trust) + '</span></div>' +
       '<div class="l-box"><small>최근 경기</small><div class="dots">' + (mineForm.length ? mineForm.map(function (f) { return '<i class="' + f + '">' + ({ W: '승', L: '패', D: '무' }[f]) + '</i>'; }).join('') : '<span>아직 치른 경기가 없습니다</span>') + '</div></div>' +
-      '</aside>';
+      '<button class="ghost l-guide" type="button" data-act="guide">경기 안내</button></aside>';
     var card;
     if (u) {
       var opp = st.teams[u.oppo], home = u.h === st.myTeam;
@@ -5208,6 +5234,50 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
   }
   function tacCard(k, v, title, line) {
     return '<button type="button" class="tac' + (st.myTactic[k] === v ? ' on' : '') + '" data-act="tac" data-k="' + k + '" data-v="' + v + '"><b>' + title + '</b><span>' + line + '</span></button>';
+  }
+  // ---------- 게임 안내 ----------
+  var ROLE = {
+    chaser: { line: '쿼플을 몰고 가 상대 고리에 넣어 점수를 냅니다.', tip: '슛과 패스를 맡는 공격의 중심입니다. 다치거나 지치면 득점이 바로 줄어듭니다.',
+      icon: '<circle cx="20" cy="20" r="12" fill="#FFFFFF"/><path d="M12 13c5 3 11 3 16 0M12 27c5-3 11-3 16 0" fill="none" stroke="currentColor" stroke-width="2"/>' },
+    beater: { line: '블러저를 쳐서 상대 선수를 잠시 경기에서 빠지게 합니다.', tip: '몰이꾼의 슈팅은 블러저 정확도입니다. 누구를 노릴지는 경기 준비의 "몰이꾼 견제 대상"에서 고릅니다.',
+      icon: '<circle cx="28" cy="13" r="7" fill="#FFFFFF"/><path d="M7 33 21 19" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>' },
+    keeper: { line: '고리 앞을 지키며 상대의 슛을 막아 냅니다.', tip: '막아 낸 공은 역습의 시작이 됩니다. 한 명뿐이라 후보도 챙겨 두면 좋습니다.',
+      icon: '<circle cx="20" cy="16" r="10" fill="none" stroke="#FFFFFF" stroke-width="4"/><path d="M20 26v11" stroke="#FFFFFF" stroke-width="4"/>' },
+    seeker: { line: '스니치를 찾아 잡습니다. 잡으면 30점을 얻고 경기가 끝납니다.', tip: '동점이 되면 경기가 이어지고, 다음 골을 넣는 팀이 이깁니다.',
+      icon: '<circle cx="20" cy="20" r="6" fill="#FFFFFF"/><path d="M14 18C9 12 5 12 2 14c2 4 6 6 12 6M26 18c5-6 9-6 12-4-2 4-6 6-12 6" fill="#FFFFFF"/>' }
+  };
+  function keyAttrs(pos) {
+    var w = M.WEIGHT[pos];
+    return M.ATTRS.filter(function (k) { return w[k] >= 0.25; }).sort(function (a, b) { return w[b] - w[a]; }).map(function (k) { return M.ATTR_NAME[k]; }).join(', ');
+  }
+  var GUIDE_STEPS = [
+    ['구단 감독이 되었습니다', '선수를 직접 움직이지 않습니다. 선발과 훈련, 전술을 정하고 경기는 지켜봅니다. 정규 리그 14라운드에서 4위 안에 들면 플레이오프에 나가고, 시즌이 끝나면 구단주 목표를 달성했는지 평가받습니다.'],
+    ['한 주는 이렇게 흘러갑니다', '<ol class="g-flow"><li><b>선수단</b>에서 지치거나 다친 선수를 확인합니다.</li><li><b>훈련</b>에서 키울 능력과 강도를 고릅니다.</li><li>로비의 <b>경기 시작</b>을 눌러 전술을 고릅니다.</li><li>3D로 관전하거나 결과만 봅니다.</li></ol>'],
+    ['점수는 두 가지입니다', '골은 10점입니다. 스니치를 잡으면 30점을 얻고 경기가 끝나므로, 크게 앞서 있으면 스니치를 내줘도 이길 수 있습니다. 승리는 승점 3점, 무승부는 1점입니다.'],
+    ['지면 원인을 보세요', '경기가 끝나면 결과 화면에서 승패 원인과 다음 경기 제안을 보여 줍니다. 역할 설명은 로비의 <b>경기 안내</b>에서 언제든 다시 볼 수 있습니다.']
+  ];
+  function viewGuide() {
+    var g = guide, head = '<div class="sheet-head"><h2>' + (g.mode === 'intro' ? GUIDE_STEPS[g.step][0] : '경기 안내') + '</h2><button class="close" type="button" data-act="guideClose" aria-label="닫기">×</button></div>';
+    if (g.mode === 'intro') {
+      var last = g.step === GUIDE_STEPS.length - 1, dots = GUIDE_STEPS.map(function (x, i) { return '<i class="' + (i === g.step ? 'on' : '') + '"></i>'; }).join('');
+      return '<div class="sheet-wrap"><section class="sheet guide" role="dialog" aria-label="첫 안내">' + head + '<div class="g-body">' + GUIDE_STEPS[g.step][1] + '</div><div class="g-foot"><span class="g-dots" aria-label="' + (g.step + 1) + ' / ' + GUIDE_STEPS.length + '">' + dots + '</span><div class="cta">' +
+        (g.step ? '<button class="btn" type="button" data-act="guidePrev">이전</button>' : '<button class="btn" type="button" data-act="guideClose">건너뛰기</button>') +
+        '<button class="btn primary" type="button" data-act="' + (last ? 'guideClose' : 'guideNext') + '">' + (last ? '시작하기' : '다음') + '</button></div></div></section></div>';
+    }
+    var tabs = [['roles', '역할'], ['flow', '한 주 흐름'], ['rules', '점수와 전술']];
+    var seg = '<div class="seg">' + tabs.map(function (x) { return '<button type="button" data-act="guideTab" data-v="' + x[0] + '" class="' + (g.tab === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>', body;
+    if (g.tab === 'roles') {
+      body = M.POS_LIST.map(function (pos) {
+        var r = ROLE[pos];
+        return '<article class="g-role"><div class="g-ic pos-' + pos + '"><svg viewBox="0 0 40 40" aria-hidden="true">' + r.icon + '</svg></div><div><h3>' + S.POS_NAME[pos] + ' <small>' + M.SLOTS[pos] + '명</small></h3><p>' + r.line + '</p><p class="g-key">중요한 능력: <b>' + keyAttrs(pos) + '</b></p><p class="g-tip">' + r.tip + '</p></div></article>';
+      }).join('');
+    } else if (g.tab === 'flow') {
+      body = GUIDE_STEPS[1][1] + '<p>쉬게 한 선수는 경기에 나간 선수보다 피로가 더 많이 풀립니다. 지친 주전을 한 주 쉬게 하는 것도 작전입니다.</p><p>이적 시장은 8라운드 경기 전과 시즌이 끝난 뒤에만 열립니다. 계약이 끝나는 선수는 비시즌에 재계약합니다.</p>';
+    } else {
+      body = '<ul class="g-list"><li><b>쿼플(빨간 공)</b> 고리에 넣으면 10점</li><li><b>블러저(검은 공)</b> 맞은 선수는 잠시 경기에서 빠짐</li><li><b>스니치(금빛 공)</b> 잡으면 30점, 경기 종료</li></ul>' +
+        '<h3>전술</h3><ul class="g-list"><li><b>공격 성향</b> 공격형은 슛이 많지만 지치고, 수비형은 막은 뒤 역습합니다.</li><li><b>몰이꾼 견제 대상</b> 블러저로 상대의 어느 포지션을 노릴지 정합니다.</li><li><b>수색꾼 운용</b> 점수 계산을 고르면 크게 뒤질 때 스니치를 일부러 놓칩니다.</li></ul><p>날씨마다 영향이 달라 경기 준비 화면에 알려 줍니다.</p>';
+    }
+    return '<div class="sheet-wrap"><section class="sheet guide" role="dialog" aria-label="경기 안내">' + head + seg + '<div class="g-body">' + body + '</div></section></div>';
   }
   function viewPrep() {
     var u = st.upcoming;
@@ -5258,7 +5328,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
     var p = found, w = M.WEIGHT[p.pos];
     var isStart = t.lineup[p.pos].indexOf(p.id) >= 0;
     var hint = isStart ? (M.byPos(t, p.pos).length > M.SLOTS[p.pos] ? '노란 카드로 표시된 후보를 누르면 자리를 바꿉니다.' : '이 포지션에는 후보가 없습니다.') : (p.injury ? '부상이 나으면 선발로 쓸 수 있습니다.' : '노란 카드로 표시된 선발을 누르면 자리를 바꿉니다.');
-    return '<aside class="detail filled"><div class="d-band pos-' + p.pos + '"><span>' + S.POS_NAME[p.pos] + '</span><span>' + (isStart ? '선발' : '후보') + '</span></div><div class="d-head"><div class="d-ov">' + M.ov(p) + '</div><div><small>' + p.age + '세</small><h2>' + M.fullName(p) + '</h2></div></div>' +
+    return '<aside class="detail filled"><div class="d-band pos-' + p.pos + '"><span>' + S.POS_NAME[p.pos] + '</span><span>' + (isStart ? '선발' : '후보') + '</span></div><div class="d-head"><div class="d-ov">' + M.ov(p) + '</div><div><small>' + p.age + '세</small><h2>' + M.fullName(p) + '</h2></div></div><p class="d-role">' + ROLE[p.pos].line + '</p>' +
       '<div class="attrs">' + M.ATTRS.map(function (k) { return '<div class="attr' + (w[k] >= 0.25 ? ' key' : '') + '"><span>' + M.ATTR_NAME[k] + '</span><span class="a-bar"><i class="pos-' + p.pos + '" style="width:' + p[k] + '%"></i></span><b>' + p[k] + '</b></div>'; }).join('') + '</div>' +
       '<div class="d-facts"><div><small>잠재력</small><b>' + potLabel(p) + '</b></div><div><small>컨디션</small><b>' + (p.injury ? '부상' : Math.round(100 - p.fatigue) + '%') + '</b></div><div><small>출전·골</small><b>' + p.apps + '·' + p.goals + '</b></div><div><small>평점</small><b>' + (p.apps ? (p.ratingSum / p.apps).toFixed(1) : '—') + '</b></div><div><small>계약</small><b>' + p.contract + '년</b></div><div><small>주급</small><b>' + M.wage(p) + '</b></div></div>' +
       '<p class="d-hint">' + hint + '</p><button class="ghost" type="button" data-act="auto">컨디션에 맞춰 자동 선발</button></aside>';
@@ -5278,7 +5348,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
       return playerCard(p, { small: true, swap: swap });
     }).join('');
     return '<div class="squad"><section class="board-wrap"><div class="sq-head"><h2>선발 일곱 명</h2><div class="sq-meta"><span>전력 <b>' + M.strength(t) + '</b></span><span>호흡 <b>' + t.chemistry + '</b></span><span>사기 <b>' + t.morale + '</b></span></div></div>' +
-      '<div class="board"><div class="b-row">' + card('seeker', 0) + '</div><div class="b-row">' + card('chaser', 0) + card('chaser', 1) + card('chaser', 2) + '</div><div class="b-row">' + card('beater', 0) + card('beater', 1) + '</div><div class="b-row">' + card('keeper', 0) + '</div></div>' +
+      '<p class="lead">카드를 누르면 능력치가 나오고, 같은 포지션 선발과 후보끼리 자리를 바꿀 수 있습니다.</p><div class="board"><div class="b-row">' + card('seeker', 0) + '</div><div class="b-row">' + card('chaser', 0) + card('chaser', 1) + card('chaser', 2) + '</div><div class="b-row">' + card('beater', 0) + card('beater', 1) + '</div><div class="b-row">' + card('keeper', 0) + '</div></div>' +
       '<div class="bench"><h3>후보 ' + benchPlayers.length + '명</h3><div class="b-strip">' + (bench || '<p>후보가 없습니다. 이적 시장에서 영입하세요.</p>') + '</div></div></section>' + detailPanel(t) + '</div>';
   }
 
@@ -5325,7 +5395,7 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
       return '<tr><td class="left">' + M.fullName(p) + '</td><td class="left">' + S.POS_NAME[p.pos] + '</td><td>' + p.age + '</td><td><b>' + M.ov(p) + '</b></td><td>' + p.contract + '년</td><td>' + M.wage(p) + '</td><td>' + money(price) + '</td><td>' + btn + '</td></tr>';
     }).join('');
     var filter = '<div class="seg wrapped small-seg">' + [['all', '전체']].concat(M.POS_LIST.map(function (p) { return [p, S.POS_NAME[p]]; })).map(function (o) { return '<button type="button" data-act="filter" data-v="' + o[0] + '" class="' + (marketFilter === o[0] ? 'on' : '') + '">' + o[1] + '</button>'; }).join('') + '</div>';
-    return '<section class="panel"><div class="head"><h2>이적 시장</h2><small>예산 ' + money(st.budget) + '금화 · 선수단 ' + t.players.length + ' / ' + M.MAX_SQUAD + '명</small></div><p class="lead">' + status + '</p>' +
+    return '<section class="panel"><div class="head"><h2>이적 시장</h2><small>예산 ' + money(st.budget) + '금화 · 선수단 ' + t.players.length + ' / ' + M.MAX_SQUAD + '명</small></div><p class="lead">' + status + ' 종합은 지금 실력, 잠재는 앞으로 오를 수 있는 추정치입니다.</p>' +
       (open ? filter + (rows ? '<div class="scroll"><table class="t"><tr><th class="left">이름</th><th class="left">포지션</th><th>나이</th><th>종합</th><th>잠재</th><th class="left">소속</th><th>주급</th><th>이적료</th><th></th></tr>' + rows + '</table></div>' : '<p class="note">이 포지션의 매물이 없습니다.</p>') : '') + '</section>' +
       '<section class="panel"><div class="head"><h2>우리 선수</h2><small>이적료의 기준은 나이와 능력입니다</small></div><div class="scroll"><table class="t"><tr><th class="left">이름</th><th class="left">포지션</th><th>나이</th><th>종합</th><th>계약</th><th>주급</th><th>판매가</th><th></th></tr>' + mineRows + '</table></div></section>';
   }
@@ -5510,7 +5580,12 @@ html, body, button, a, .title, .hud, .dock, .app { touch-action: manipulation; }
       sel = sel === id ? null : id; sound('click'); render();
     },
     nav: function (el) { if (view !== el.getAttribute('data-to')) { enter = true; sound('tab'); } view = el.getAttribute('data-to'); notice = ''; sel = null; prepOpen = false; pendingBuy = pendingSell = null; pendingReset = false; render(); window.scrollTo(0, 0); },
-    choose: function (el) { sound('swoosh'); wipe(function () { M.chooseTeam(st, +el.getAttribute('data-team')); view = 'home'; enter = true; persist(); render(); }); },
+    choose: function (el) { sound('swoosh'); wipe(function () { M.chooseTeam(st, +el.getAttribute('data-team')); view = 'home'; enter = true; if (location.hash !== '#notitle') guide = { mode: 'intro', step: 0 }; persist(); render(); }); },
+    guide: function () { guide = { mode: 'help', tab: 'roles' }; sound('open'); render(); },
+    guideClose: function () { guide = null; sound('close'); render(); },
+    guideNext: function () { guide.step++; sound('tab'); render(); },
+    guidePrev: function () { guide.step--; sound('tab'); render(); },
+    guideTab: function (el) { guide.tab = el.getAttribute('data-v'); sound('tab'); sheetScroll = 0; render(); var w = $('app').querySelector('.sheet-wrap'); if (w) w.scrollTop = 0; },
     quick: function () { sound('drum'); applyMatch(M.simulate(M.matchInput(st))); },
     watch: function () {
       var input = M.matchInput(st), u = st.upcoming, stake = M.stakes(st), mine = st.myTeam, opp = u.oppo;
